@@ -33,10 +33,8 @@ func (r *Response) Serialize() string {
 
 	// Add headers
 	var headerLines strings.Builder
-	for key, values := range r.Headers {
-		for _, value := range values {
-			headerLines.WriteString(fmt.Sprintf("%s: %s\r\n", key, string(value)))
-		}
+	for key, value := range r.Headers {
+		headerLines.WriteString(fmt.Sprintf("%s: %s\r\n", key, value))
 	}
 
 	// End headers with CRLF and add body

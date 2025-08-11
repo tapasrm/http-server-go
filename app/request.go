@@ -15,8 +15,8 @@ type Request struct {
 	Method   string              `json:"method"`
 	Path     string              `json:"path"` // Changed from map[string]string for simplicity and correctness
 	Protocol string              `json:"protocol"`
-	Query    map[string][]string `json:"query"`  // Changed to handle multiple values for the same key (prevents HPP)
-	Headers  map[string][]string `json:"headers"`// Changed to handle multiple values for the same key
+	Query    map[string][]string `json:"query"`   // Changed to handle multiple values for the same key (prevents HPP)
+	Headers  map[string][]string `json:"headers"` // Changed to handle multiple values for the same key
 	Params   map[string]string   `json:"params"`
 	Host     string              `json:"host"`
 	Body     string              `json:"body"`

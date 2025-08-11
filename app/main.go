@@ -5,14 +5,7 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"strings"
 )
-
-type Route struct {
-	Path    string `json:"path"`
-	Method  string `json:"method"`
-	Handler string `json:"handler"`
-}
 
 func main() {
 	l, err := net.Listen("tcp", "0.0.0.0:4221")
@@ -21,17 +14,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	for true {
+	router := NewRouter()
+	router.Add("GET", "/", rootHandler)
+	router.Add("GET", "/echo/{message}", echoHandler)
+
+	for {
 		conn, err1 := l.Accept()
 		if err1 != nil {
 			fmt.Println("Error accepting connection: ", err1.Error())
 			os.Exit(1)
 		}
-		go handleConnection(conn)
+		go handleConnection(conn, router)
 	}
 }
 
-func handleConnection(conn net.Conn) {
+func handleConnection(conn net.Conn, router *Router) {
 	defer conn.Close()
 	buffer := make([]byte, 1024)
 	n, err := conn.Read(buffer)
@@ -39,7 +36,6 @@ func handleConnection(conn net.Conn) {
 		fmt.Println("Error reading from connection: ", err.Error())
 		return
 	}
-	fmt.Printf("Received %d bytes: %s\n", n, string(buffer[:n]))
 
 	var req Request
 	if err := req.ParseRequest(string(buffer[:n])); err != nil {
@@ -52,51 +48,31 @@ func handleConnection(conn net.Conn) {
 		_, err = conn.Write([]byte(response.Serialize()))
 		if err != nil {
 			fmt.Println("Error writing to connection: ", err.Error())
-			return
 		}
-		fmt.Println("Response sent to client")
 		return
 	}
-	fmt.Printf("Parsed Request: Method: %s, Path: %s, Protocol: %s, Host: %s\n",
-		req.Method, req.Path, req.Protocol, req.Host)
 
-	fmt.Println("Headers:")
-	for key, values := range req.Headers {
-		fmt.Printf("  %s: %v\n", key, values)
-	}
-	fmt.Println("Query Parameters:")
-	for key, values := range req.Query {
-		fmt.Printf("  %s: %v\n", key, values)
-	}
-	fmt.Println("Body:", req.Body)
-
-	method, path, protocol := req.Method, req.Path, req.Protocol
-	fmt.Printf("Method: %s, Path: %s, Protocol: %s\n", method, path, protocol)
-
-	var response Response
-	if path == "/" {
-		response.SetStatusCode(200)
-		response.SetHeader("Content-Type", "text/plain")
-		response.SetBody("Hello, World!")
-	}
-
-	if strings.HasPrefix(path, "/echo") {
-		params := strings.Split(path, "/")
-		pathParam := ""
-		if len(params) >= 3 {
-			pathParam = params[2]
-		}
-		byteLen := len([]byte(pathParam))
-		response.SetStatusCode(200)
-		response.SetHeader("Content-Type", "text/plain")
-		response.SetHeader("Content-Length", strconv.Itoa(byteLen))
-		response.SetBody(pathParam)
-	}
-	fmt.Println("Response: ", response)
+	response := router.Find(&req)
 	_, err = conn.Write([]byte(response.Serialize()))
 	if err != nil {
 		fmt.Println("Error writing to connection: ", err.Error())
-		return
 	}
-	fmt.Println("temp sent to client")
+}
+
+func rootHandler(req *Request) *Response {
+	return &Response{
+		StatusCode: 200,
+		Headers:    map[string]string{"Content-Type": "text/plain", "Content-Length": "13"},
+		Body:       "Hello, World!",
+	}
+}
+
+func echoHandler(req *Request) *Response {
+	message := req.Params["message"]
+
+	return &Response{
+		StatusCode: 200,
+		Headers:    map[string]string{"Content-Type": "text/plain", "Content-Length": strconv.Itoa(len(message))},
+		Body:       message,
+	}
 }
